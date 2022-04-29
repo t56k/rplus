@@ -1,9 +1,4 @@
-# Rust web API with Warp and Diesel
-
-Simple web API written in Rust with [Warp](https://github.com/seanmonstar/warp) as a web framework and [Diesel](https://github.com/diesel-rs/diesel) for database connection. 
-
-This is the repository for [the blog post](https://sgibala.com/01-01-rust-api-with-warp-and-diesel/).
-
+# rplus
 
 ## Run
 

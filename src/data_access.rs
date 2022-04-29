@@ -1,7 +1,8 @@
+use crate::document::{Document, DocumentStatus};
+use crate::errors::{AppError, ErrorType};
+
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
-use crate::model::{CreateBookDTO, BookDTO, BookStatus};
-use crate::errors::{AppError,ErrorType};
 
 type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
 
@@ -11,60 +12,55 @@ pub struct DBAccessManager {
 
 impl DBAccessManager {
     pub fn new(connection: PooledPg) -> DBAccessManager {
-        DBAccessManager {connection}
+        DBAccessManager { connection }
     }
 
-    pub fn create_book(&self, dto: CreateBookDTO) -> Result<BookDTO, AppError> {
-        use super::schema::books;
+    pub fn create_document(&self, dto: Document) -> Result<Document, AppError> {
+        use super::schema::documents;
 
-        diesel::insert_into(books::table) // insert into books table
-            .values(&dto) // use values from CreateBookDTO
-            .get_result(&self.connection) // execute query
-            .map_err(|err| {
-                AppError::from_diesel_err(err, "while creating book")
-            }) // if error occurred map it to AppError
+        diesel::insert_into(documents::table)
+            .values(&dto)
+            .get_result(&self.connection)
+            .map_err(|err| AppError::from_diesel_err(err, "while creating document"))
     }
 
-    pub fn list_books(&self) -> Result<Vec<BookDTO>, AppError> {
-        use super::schema::books::dsl::*;
+    pub fn list_documents(&self) -> Result<Vec<Document>, AppError> {
+        use super::schema::documents::dsl::*;
 
-        books
+        documents
             .load(&self.connection)
-            .map_err(|err| {
-                AppError::from_diesel_err(err, "while listing books")
-            })
+            .map_err(|err| AppError::from_diesel_err(err, "while listing documents"))
     }
 
-    pub fn update_book_status(&self, book_id: i64, new_status: BookStatus) -> Result<usize, AppError> {
-        use super::schema::books::dsl::*;
+    pub fn update_document_status(
+        &self,
+        document_id: i64,
+        new_status: DocumentStatus,
+    ) -> Result<usize, AppError> {
+        use super::schema::documents::dsl::*;
 
-        let updated = diesel::update(books)
-            .filter(id.eq(book_id))
+        let updated = diesel::update(documents)
+            .filter(id.eq(document_id))
             .set(status.eq(new_status))
             .execute(&self.connection)
-            .map_err(|err| {
-                AppError::from_diesel_err(err, "while updating book status")
-            })?;
+            .map_err(|err| AppError::from_diesel_err(err, "while updating document status"))?;
 
         if updated == 0 {
-            return Err(AppError::new("Book not found", ErrorType::NotFound))
+            return Err(AppError::new("Document not found", ErrorType::NotFound));
         }
-        return Ok(updated)
+        return Ok(updated);
     }
 
-    pub fn delete_book(&self, book_id: i64) -> Result<usize, AppError> {
-        use super::schema::books::dsl::*;
+    pub fn delete_document(&self, document_id: i64) -> Result<usize, AppError> {
+        use super::schema::documents::dsl::*;
 
-        let deleted = diesel::delete(books.filter(id.eq(book_id)))
+        let deleted = diesel::delete(documents.filter(id.eq(document_id)))
             .execute(&self.connection)
-            .map_err(|err| {
-                AppError::from_diesel_err(err, "while deleting book")
-            })?;
+            .map_err(|err| AppError::from_diesel_err(err, "while deleting document"))?;
 
         if deleted == 0 {
-            return Err(AppError::new("Book not found", ErrorType::NotFound))
+            return Err(AppError::new("Document not found", ErrorType::NotFound));
         }
-        return Ok(deleted)
+        return Ok(deleted);
     }
 }
-

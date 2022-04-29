@@ -1,5 +1,9 @@
+use serde_derive::Serialize;
+use std::convert::Infallible;
 use std::fmt;
-use warp::reject::Reject;
+use warp::{Rejection, Reply};
+
+impl std::error::Error for AppError {}
 
 #[derive(Debug)]
 pub enum ErrorType {
@@ -16,7 +20,10 @@ pub struct AppError {
 
 impl AppError {
     pub fn new(message: &str, err_type: ErrorType) -> AppError {
-        AppError { message: message.to_string(), err_type }
+        AppError {
+            message: message.to_string(),
+            err_type,
+        }
     }
 
     pub fn to_http_status(&self) -> warp::http::StatusCode {
@@ -31,35 +38,22 @@ impl AppError {
         AppError::new(
             format!("{}: {}", context, err.to_string()).as_str(),
             match err {
-                diesel::result::Error::DatabaseError(db_err, _) => {
-                    match db_err {
-                        diesel::result::DatabaseErrorKind::UniqueViolation => ErrorType::BadRequest,
-                        _ => ErrorType::Internal,
-                    }
-                }
+                diesel::result::Error::DatabaseError(db_err, _) => match db_err {
+                    diesel::result::DatabaseErrorKind::UniqueViolation => ErrorType::BadRequest,
+                    _ => ErrorType::Internal,
+                },
                 diesel::result::Error::NotFound => ErrorType::NotFound,
-                // If needed we can handle other cases
-                _ => {
-                    ErrorType::Internal
-                }
+                _ => ErrorType::Internal,
             },
         )
     }
 }
-
-impl std::error::Error for AppError {}
 
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.message)
     }
 }
-
-impl Reject for AppError {}
-
-use std::convert::Infallible;
-use warp::{Rejection, Reply};
-use serde_derive::Serialize;
 
 #[derive(Serialize)]
 struct ErrorMessage {
@@ -84,7 +78,6 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> 
         code = warp::http::StatusCode::METHOD_NOT_ALLOWED;
         message = "Method Not Allowed";
     } else {
-        // We should have expected this... Just log and say its a 500
         eprintln!("unhandled rejection: {:?}", err);
         code = warp::http::StatusCode::INTERNAL_SERVER_ERROR;
         message = "Unhandled rejection";
